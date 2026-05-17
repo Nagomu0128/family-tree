@@ -1,6 +1,12 @@
 # Firebase App Hosting backend configuration.
-# Region: asia-northeast2 (Osaka) — set when creating the backend in Firebase console.
+# Region for the backend itself is selected in the Firebase console
+# (recommended: asia-northeast2 — Osaka — to match Firestore).
 # Docs: https://firebase.google.com/docs/app-hosting/configure
+#
+# Firebase Web `apiKey` is NOT a secret: it identifies the project on the
+# client and security is enforced through Firestore rules + Auth. We inline
+# the public config; rotate to Secret Manager only if a value becomes
+# project-private later.
 
 runConfig:
   minInstances: 0
@@ -11,37 +17,23 @@ runConfig:
 
 env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    secret: firebase-api-key
-    availability:
-      - BUILD
-      - RUNTIME
+    value: AIzaSyD1A7NKQlKUbo1KIO9imczqJwXPEjZDGXc
+    availability: [BUILD, RUNTIME]
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
     value: family-tree-e2751.firebaseapp.com
-    availability:
-      - BUILD
-      - RUNTIME
+    availability: [BUILD, RUNTIME]
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
     value: family-tree-e2751
-    availability:
-      - BUILD
-      - RUNTIME
+    availability: [BUILD, RUNTIME]
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
     value: family-tree-e2751.firebasestorage.app
-    availability:
-      - BUILD
-      - RUNTIME
+    availability: [BUILD, RUNTIME]
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
     value: '691525560772'
-    availability:
-      - BUILD
-      - RUNTIME
+    availability: [BUILD, RUNTIME]
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: '1:691525560772:web:e03dcb1b8e4623a87a1c91'
-    availability:
-      - BUILD
-      - RUNTIME
+    availability: [BUILD, RUNTIME]
   - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
     value: G-T0NFBKLZW9
-    availability:
-      - BUILD
-      - RUNTIME
+    availability: [BUILD, RUNTIME]

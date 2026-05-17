@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# family-tree
 
-## Getting Started
+家系図をデータで管理する Next.js + Firebase の Web アプリ。PC / モバイル両対応のキャンバスで人物と関係を編集でき、招待制でコラボ編集できる。
 
-First, run the development server:
+## 主な機能
+
+- Google サインイン (Firebase Auth)
+- 複数ツリー / 役割 (owner / editor / viewer)
+- react-flow キャンバス: 親子・配偶者・養子の可視化、pan / zoom / minimap
+- 名前 (かな・漢字) インクリメンタル検索、基準人物からの親等フィルター、世代 / 性別 / 生年フィルター
+- Undo / Redo (Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z) + 変更履歴
+- 公開リンク (読み取り専用) + PDF 出力 (SVG → 印刷ダイアログ)
+- GEDCOM 5.5.1 import / export
+- Firebase App Hosting でデプロイ
+
+## セットアップ
 
 ```bash
+npm install
+cp .env.local.example .env.local   # Firebase Web 設定を埋める
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Firebase コンソール側の準備:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. プロジェクト作成 (例: `family-tree-e2751`)
+2. **Authentication → Sign-in method** で Google プロバイダを有効化
+3. **Firestore Database** を Native モード、リージョン `asia-northeast2` (大阪) で作成
+4. Web アプリを登録し、表示された `firebaseConfig` を `.env.local` に貼り付け
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## スクリプト
 
-## Learn More
+| コマンド | 用途 |
+|---|---|
+| `npm run dev` | 開発サーバー (Turbopack) |
+| `npm run lint` | ESLint |
+| `npm run format` / `format:check` | Prettier |
+| `npm run build` | 本番ビルド |
 
-To learn more about Next.js, take a look at the following resources:
+## Firestore Rules / Indexes のデプロイ
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+# Firebase CLI が必要
+npx firebase-tools login
+npx firebase-tools deploy --only firestore:rules,firestore:indexes
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+ローカルの `firestore.rules` が本番に反映される。
 
-## Deploy on Vercel
+## デプロイ (Firebase App Hosting)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Firebase コンソール → **App Hosting** → バックエンドを作成 (リージョン: `asia-northeast2`)
+2. GitHub リポジトリを接続し、`main` ブランチを選択
+3. ルートに `apphosting.yaml` がある状態で push → 自動デプロイ
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> **注意**: Next.js 16 公式ドキュメントは Firebase App Hosting を「verified adapter」として明示していない。Firebase 公式ドキュメント (firebase.google.com/docs/app-hosting) で Next.js 16 の対応状況を確認してください。未対応の場合は Cloud Run + Dockerfile への移行を検討。
+
+## CI
+
+`.github/workflows/ci.yml` が PR / push (main) で:
+- `npm ci`
+- `npm run lint`
+- `npm run build` (Firebase 変数はダミーで OK — クライアント SDK が初期化されないだけでビルドは通る)
+
+## プロジェクト構造
+
+```
+app/
+  trees/                  # ツリー一覧・編集
+  share/[code]/           # 公開閲覧 (認証不要)
+  login/                  # サインイン
+components/
+  family/                 # キャンバスと操作 UI
+  trees/                  # ツリーシェル
+  auth/                   # 認証関連
+  ui/                     # 汎用 UI
+lib/
+  firebase/               # クライアント SDK 初期化
+  auth/                   # AuthProvider / useAuth
+  firestore/              # CRUD (trees, persons, relations, members, shareLinks, history)
+  family/                 # 型 / レイアウト / 検索 / 親等 / Undo / SVG エクスポート
+  gedcom/                 # import / export
+```
+
+## ライセンス
+
+Private. 個人プロジェクト。
