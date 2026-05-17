@@ -53,12 +53,18 @@ function TreeShellInner({ children }: { children: ReactNode }) {
             </div>
           </div>
         </div>
-        <nav className="flex items-center gap-2 text-sm">
+        <nav className="flex items-center gap-1 text-sm">
           <Link
             href={`/trees/${treeId}`}
             className="rounded-md px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800"
           >
             キャンバス
+          </Link>
+          <Link
+            href={`/trees/${treeId}/list`}
+            className="rounded-md px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          >
+            一覧
           </Link>
           <Link
             href={`/trees/${treeId}/members`}
