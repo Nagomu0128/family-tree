@@ -40,20 +40,24 @@ function TreeShellInner({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <header className="flex items-center justify-between gap-4 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <div className="flex items-center gap-3">
-          <Link href="/trees" className="text-sm text-zinc-500 hover:underline">
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Link
+            href="/trees"
+            aria-label="マイツリー一覧へ戻る"
+            className="text-sm text-zinc-500 hover:underline"
+          >
             ←
           </Link>
-          <div>
-            <h1 className="text-base font-semibold">{tree.name || '(無題)'}</h1>
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-semibold">{tree.name || '(無題)'}</h1>
             <div className="text-xs text-zinc-500">
               {role === 'owner' ? 'オーナー' : role === 'editor' ? '編集者' : '閲覧者'} · メンバー
               {tree.memberIds.length} 人
             </div>
           </div>
         </div>
-        <nav className="flex items-center gap-1 text-sm">
+        <nav aria-label="ツリーセクション" className="flex items-center gap-1 text-sm">
           <Link
             href={`/trees/${treeId}`}
             className="rounded-md px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800"

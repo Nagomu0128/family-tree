@@ -19,7 +19,11 @@ export function HistoryPanel({
 }) {
   const entries = [...state.past.slice().reverse(), ...state.future]
   return (
-    <aside className="flex h-full w-72 flex-col border-l border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+    <aside
+      role="dialog"
+      aria-label="変更履歴"
+      className="fixed inset-y-0 right-0 z-30 flex h-full w-full max-w-[88vw] flex-col border-l border-zinc-200 bg-white shadow-xl sm:relative sm:z-auto sm:w-72 sm:shadow-none dark:border-zinc-800 dark:bg-zinc-950"
+    >
       <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <h3 className="text-sm font-semibold">変更履歴</h3>
         <button

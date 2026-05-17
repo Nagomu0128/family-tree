@@ -56,7 +56,8 @@ export function SearchBar({ persons, onPick }: SearchBarProps) {
         ref={inputRef}
         type="search"
         value={query}
-        placeholder="人物を検索 (Ctrl/Cmd+K)"
+        placeholder="人物を検索"
+        aria-label="人物を検索"
         onChange={(e) => {
           setQuery(e.target.value)
           setOpen(true)

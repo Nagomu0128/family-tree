@@ -71,7 +71,11 @@ export function FilterPanel({
   const reset = () => onChange(defaultFilterState)
 
   return (
-    <aside className="flex h-full w-72 flex-col border-l border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+    <aside
+      role="dialog"
+      aria-label="フィルター"
+      className="fixed inset-y-0 right-0 z-30 flex h-full w-full max-w-[88vw] flex-col border-l border-zinc-200 bg-white p-4 shadow-xl sm:relative sm:z-auto sm:w-72 sm:shadow-none dark:border-zinc-800 dark:bg-zinc-950"
+    >
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">フィルター</h3>
         <button

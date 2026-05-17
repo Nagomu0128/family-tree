@@ -359,7 +359,7 @@ function CanvasInner() {
           <div className="pointer-events-auto">
             <SearchBar persons={persons} onPick={focusOnPerson} />
           </div>
-          <div className="pointer-events-auto flex items-center gap-2">
+          <div className="pointer-events-auto flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setFilterOpen((v) => !v)}
