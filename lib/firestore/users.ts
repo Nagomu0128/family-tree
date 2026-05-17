@@ -18,7 +18,7 @@ export async function upsertUserProfile(user: User): Promise<void> {
   const base = {
     uid: user.uid,
     displayName: user.displayName,
-    email: user.email,
+    email: user.email ? user.email.toLowerCase() : null,
     photoURL: user.photoURL,
     updatedAt: serverTimestamp(),
   }
