@@ -15,7 +15,15 @@
 
 # next.js
 /.next/
+/.next/dev/
 /out/
+
+# firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*.log
 
 # production
 /build
