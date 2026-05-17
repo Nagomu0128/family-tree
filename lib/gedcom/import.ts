@@ -2,10 +2,10 @@ import type { PersonInput, RelationInput } from '../family/schemas'
 import type { Gender } from '../family/types'
 
 export type ParsedPerson = PersonInput & { gedId: string }
-export type ParsedRelation = Omit<RelationInput, 'fromId' | 'toId'> & {
-  fromGedId: string
-  toGedId: string
-}
+type WithGedRefs<T> = T extends { fromId: string; toId: string }
+  ? Omit<T, 'fromId' | 'toId'> & { fromGedId: string; toGedId: string }
+  : never
+export type ParsedRelation = WithGedRefs<RelationInput>
 
 export type ParsedGedcom = {
   persons: ParsedPerson[]
@@ -45,13 +45,14 @@ export function parseGedcom(input: string): ParsedGedcom {
     deathYear?: number
     notes: string[]
   }
+  type ChildPedi = 'biological' | 'adoptive' | 'step' | 'foster'
   type FamRec = {
     xref: string
     husb?: string
     wife?: string
     marrYear?: number
     divYear?: number
-    children: Array<{ xref: string; adopted: boolean }>
+    children: Array<{ xref: string; pedi: ChildPedi }>
   }
 
   const indis = new Map<string, IndiRec>()
@@ -92,12 +93,15 @@ export function parseGedcom(input: string): ParsedGedcom {
         else if (sub.level === 1 && sub.tag === 'WIFE') rec.wife = sub.value.trim()
         else if (sub.level === 1 && sub.tag === 'CHIL') {
           const childXref = sub.value.trim()
-          let adopted = false
+          let pedi: ChildPedi = 'biological'
           const peek = lines[i + 1]
-          if (peek && peek.level === 2 && peek.tag === 'PEDI' && /adopt/i.test(peek.value)) {
-            adopted = true
+          if (peek && peek.level === 2 && peek.tag === 'PEDI') {
+            const v = peek.value.toLowerCase()
+            if (v.startsWith('adopt')) pedi = 'adoptive'
+            else if (v.startsWith('step')) pedi = 'step'
+            else if (v.startsWith('foster')) pedi = 'foster'
           }
-          rec.children.push({ xref: childXref, adopted })
+          rec.children.push({ xref: childXref, pedi })
         } else if (sub.level === 1 && sub.tag === 'MARR') {
           rec.marrYear = readDate(lines, i + 1)
         } else if (sub.level === 1 && sub.tag === 'DIV') {
@@ -136,6 +140,7 @@ export function parseGedcom(input: string): ParsedGedcom {
         kind: 'spouse',
         fromGedId: parents[0],
         toGedId: parents[1],
+        subtype: 'married',
         startedYear: fam.marrYear,
         endedYear: fam.divYear,
       })
@@ -146,7 +151,7 @@ export function parseGedcom(input: string): ParsedGedcom {
           kind: 'parent-child',
           fromGedId: parent,
           toGedId: child.xref,
-          subtype: child.adopted ? 'adoptive' : 'biological',
+          subtype: child.pedi,
         })
       }
     }

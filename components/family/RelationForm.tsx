@@ -1,8 +1,19 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { relationInputSchema, type RelationInput } from '@/lib/family/schemas'
-import type { Person, Relation } from '@/lib/family/types'
+import {
+  PARENT_CHILD_SUBTYPES,
+  SIBLING_SUBTYPES,
+  SPOUSE_SUBTYPES,
+  parentChildSubtypeLabel,
+  siblingSubtypeLabel,
+  spouseSubtypeLabel,
+  type Person,
+  type Relation,
+  type RelationKind,
+  type RelationSubtype,
+} from '@/lib/family/types'
 
 export type RelationFormProps = {
   persons: Person[]
@@ -12,6 +23,12 @@ export type RelationFormProps = {
   onCancel: () => void
 }
 
+const defaultSubtype: Record<RelationKind, RelationSubtype> = {
+  'parent-child': 'biological',
+  spouse: 'married',
+  sibling: 'full',
+}
+
 export function RelationForm({
   persons,
   initial,
@@ -19,11 +36,11 @@ export function RelationForm({
   onDelete,
   onCancel,
 }: RelationFormProps) {
-  const [kind, setKind] = useState<RelationInput['kind']>(initial?.kind ?? 'parent-child')
+  const [kind, setKind] = useState<RelationKind>((initial?.kind as RelationKind) ?? 'parent-child')
   const [fromId, setFromId] = useState(initial?.fromId ?? '')
   const [toId, setToId] = useState(initial?.toId ?? '')
-  const [subtype, setSubtype] = useState<NonNullable<RelationInput['subtype']>>(
-    initial?.subtype ?? 'biological',
+  const [subtype, setSubtype] = useState<RelationSubtype>(
+    (initial?.subtype as RelationSubtype) ?? defaultSubtype[kind],
   )
   const [startedYear, setStartedYear] = useState<string>(
     initial?.startedYear !== undefined ? String(initial.startedYear) : '',
@@ -34,17 +51,63 @@ export function RelationForm({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  const subtypeOptions = useMemo(() => {
+    if (kind === 'parent-child') {
+      return PARENT_CHILD_SUBTYPES.map((v) => ({ value: v, label: parentChildSubtypeLabel[v] }))
+    }
+    if (kind === 'spouse') {
+      return SPOUSE_SUBTYPES.map((v) => ({ value: v, label: spouseSubtypeLabel[v] }))
+    }
+    return SIBLING_SUBTYPES.map((v) => ({ value: v, label: siblingSubtypeLabel[v] }))
+  }, [kind])
+
+  const onChangeKind = (next: RelationKind) => {
+    setKind(next)
+    setSubtype(defaultSubtype[next])
+  }
+
+  const labels = useMemo(() => {
+    if (kind === 'parent-child') return { from: '親', to: '子', startYear: '', endYear: '' }
+    if (kind === 'spouse')
+      return { from: '配偶者A', to: '配偶者B', startYear: '結婚年', endYear: '解消年 (離婚・死別)' }
+    return { from: '本人', to: '兄弟姉妹', startYear: '', endYear: '' }
+  }, [kind])
+
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
-    const parsed = relationInputSchema.safeParse({
-      kind,
-      fromId,
-      toId,
-      subtype: kind === 'parent-child' ? subtype : undefined,
-      startedYear: startedYear ? Number(startedYear) : undefined,
-      endedYear: endedYear ? Number(endedYear) : undefined,
-    })
+    const start = startedYear ? Number(startedYear) : undefined
+    const end = endedYear ? Number(endedYear) : undefined
+    let payload: RelationInput
+    if (kind === 'parent-child') {
+      payload = {
+        kind,
+        fromId,
+        toId,
+        subtype: subtype as 'biological' | 'adoptive' | 'step' | 'foster',
+        startedYear: start,
+        endedYear: end,
+      }
+    } else if (kind === 'spouse') {
+      payload = {
+        kind,
+        fromId,
+        toId,
+        subtype: subtype as 'married' | 'partnered' | 'engaged',
+        startedYear: start,
+        endedYear: end,
+      }
+    } else {
+      payload = {
+        kind,
+        fromId,
+        toId,
+        subtype: subtype as 'full' | 'half' | 'step' | 'twin',
+        startedYear: start,
+        endedYear: end,
+      }
+    }
+    const parsed = relationInputSchema.safeParse(payload)
     if (!parsed.success) {
       setError(parsed.error.issues.map((i) => i.message).join(' / '))
       return
@@ -76,34 +139,36 @@ export function RelationForm({
       <Field label="種類" required>
         <select
           value={kind}
-          onChange={(e) => setKind(e.target.value as RelationInput['kind'])}
+          onChange={(e) => onChangeKind(e.target.value as RelationKind)}
           className={inputClass}
         >
           <option value="parent-child">親子</option>
           <option value="spouse">配偶者</option>
+          <option value="sibling">兄弟姉妹</option>
         </select>
       </Field>
-      <Field label={kind === 'parent-child' ? '親' : '配偶者A'} required>
+      <Field label="関係の種別">
+        <select
+          value={subtype}
+          onChange={(e) => setSubtype(e.target.value as RelationSubtype)}
+          className={inputClass}
+        >
+          {subtypeOptions.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label={labels.from} required>
         <PersonSelect persons={persons} value={fromId} onChange={setFromId} />
       </Field>
-      <Field label={kind === 'parent-child' ? '子' : '配偶者B'} required>
+      <Field label={labels.to} required>
         <PersonSelect persons={persons} value={toId} onChange={setToId} />
       </Field>
-      {kind === 'parent-child' && (
-        <Field label="親子の種類">
-          <select
-            value={subtype}
-            onChange={(e) => setSubtype(e.target.value as NonNullable<RelationInput['subtype']>)}
-            className={inputClass}
-          >
-            <option value="biological">実親子</option>
-            <option value="adoptive">養子縁組</option>
-          </select>
-        </Field>
-      )}
       {kind === 'spouse' && (
         <div className="grid grid-cols-2 gap-3">
-          <Field label="結婚年">
+          <Field label={labels.startYear}>
             <input
               type="number"
               min={0}
@@ -113,7 +178,7 @@ export function RelationForm({
               className={inputClass}
             />
           </Field>
-          <Field label="解消年 (離婚・死別)">
+          <Field label={labels.endYear}>
             <input
               type="number"
               min={0}

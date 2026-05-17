@@ -8,12 +8,13 @@ export type KinshipOptions = {
 /**
  * Compute the kinship distance (親等) from `baseId` to every reachable person.
  *
- * - Parent-child edge: weight 1
- * - Spouse edge: weight 0 when `includeSpouseLink` is true (treats your spouse
- *   and their bloodline as part of your kinship graph); otherwise spouse edges
- *   are ignored so only consanguineous (blood) kin appears.
+ * Edge weights:
+ * - parent-child : 1
+ * - spouse       : 0 when `includeSpouseLink` is true, ignored otherwise
+ * - sibling      : 2 (you go up to a shared parent and down — matches the
+ *                  legal counting for full / half siblings)
  *
- * Uses 0-1 BFS to keep the shortest path under mixed 0/1 edge weights.
+ * The walk uses a deque so 0-weight spouse hops keep their priority.
  */
 export function computeKinship(
   baseId: string,
@@ -21,7 +22,7 @@ export function computeKinship(
   relations: Relation[],
   options: KinshipOptions = { includeSpouseLink: true },
 ): Map<string, number> {
-  const { parentOf, childOf, spouseOf } = buildAdjacency(relations)
+  const adj = buildAdjacency(relations)
   const dist = new Map<string, number>()
   if (!persons.some((p) => p.id === baseId)) return dist
   dist.set(baseId, 0)
@@ -30,7 +31,7 @@ export function computeKinship(
     const id = deque.shift()!
     const d = dist.get(id) ?? 0
     if (options.includeSpouseLink) {
-      for (const sp of spouseOf.get(id) ?? []) {
+      for (const sp of adj.spouseOf.get(id) ?? []) {
         const prev = dist.get(sp)
         if (prev === undefined || prev > d) {
           dist.set(sp, d)
@@ -38,12 +39,19 @@ export function computeKinship(
         }
       }
     }
-    const oneHop = [...(parentOf.get(id) ?? []), ...(childOf.get(id) ?? [])]
-    for (const n of oneHop) {
+    const blood = [...(adj.parentOf.get(id) ?? []), ...(adj.childOf.get(id) ?? [])]
+    for (const n of blood) {
       const prev = dist.get(n)
       if (prev === undefined || prev > d + 1) {
         dist.set(n, d + 1)
         deque.push(n)
+      }
+    }
+    for (const sib of adj.siblingOf.get(id) ?? []) {
+      const prev = dist.get(sib)
+      if (prev === undefined || prev > d + 2) {
+        dist.set(sib, d + 2)
+        deque.push(sib)
       }
     }
   }

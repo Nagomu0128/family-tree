@@ -41,8 +41,14 @@ export function relationFromSnapshot(snap: DocumentSnapshot | QueryDocumentSnaps
   }
 }
 
-function normalizeSpouse(fromId: string, toId: string): [string, string] {
+function normalizeUndirected(fromId: string, toId: string): [string, string] {
   return fromId < toId ? [fromId, toId] : [toId, fromId]
+}
+
+function defaultSubtype(kind: RelationInput['kind']): string {
+  if (kind === 'parent-child') return 'biological'
+  if (kind === 'spouse') return 'married'
+  return 'full'
 }
 
 export async function createRelation(
@@ -52,8 +58,10 @@ export async function createRelation(
   options: { id?: string } = {},
 ): Promise<string> {
   const data = { ...input }
-  if (data.kind === 'spouse') {
-    const [a, b] = normalizeSpouse(data.fromId, data.toId)
+  // Spouse and sibling are undirected — normalize the pair so reverse-order
+  // duplicates are detectable and rendering is stable.
+  if (data.kind === 'spouse' || data.kind === 'sibling') {
+    const [a, b] = normalizeUndirected(data.fromId, data.toId)
     data.fromId = a
     data.toId = b
   }
@@ -62,11 +70,11 @@ export async function createRelation(
     kind: data.kind,
     fromId: data.fromId,
     toId: data.toId,
+    subtype: data.subtype ?? defaultSubtype(data.kind),
     createdBy: uid,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }
-  if (data.kind === 'parent-child') payload.subtype = data.subtype ?? 'biological'
   if (typeof data.startedYear === 'number') payload.startedYear = data.startedYear
   if (typeof data.endedYear === 'number') payload.endedYear = data.endedYear
   await setDoc(doc(relationsCollection(treeId), id), payload)

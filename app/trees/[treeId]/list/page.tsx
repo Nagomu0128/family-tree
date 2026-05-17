@@ -306,7 +306,19 @@ function genderLabel(g: Person['gender']): string {
 }
 
 function relationLabel(kind: Relation['kind'], subtype?: Relation['subtype']): string {
-  if (kind === 'spouse') return '— 配偶 —'
+  if (kind === 'spouse') {
+    if (subtype === 'partnered') return '— パートナー —'
+    if (subtype === 'engaged') return '— 婚約 —'
+    return '— 配偶 —'
+  }
+  if (kind === 'sibling') {
+    if (subtype === 'twin') return '— 双子 —'
+    if (subtype === 'half') return '— 半兄弟姉妹 —'
+    if (subtype === 'step') return '— 義兄弟姉妹 —'
+    return '— 兄弟姉妹 —'
+  }
   if (subtype === 'adoptive') return '⇣ 養子'
+  if (subtype === 'step') return '⇣ 継親子'
+  if (subtype === 'foster') return '⇣ 里親子'
   return '↓ 親子'
 }

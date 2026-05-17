@@ -39,26 +39,32 @@ export function buildLayout(
 
   for (const r of relations) {
     if (r.kind === 'parent-child') {
-      g.setEdge(r.fromId, r.toId, { weight: 1 })
+      g.setEdge(r.fromId, r.toId, { weight: 2 })
     }
   }
 
-  // Spouse pairs as same-rank pull: dagre lacks rank constraints, so we
-  // approximate by adding an invisible edge with minlen 0 and high weight.
+  // Spouse / sibling pairs are same-rank pulls so dagre clusters them together
+  // without ranking one above the other.
   for (const r of relations) {
-    if (r.kind === 'spouse') {
+    if (r.kind === 'spouse' || r.kind === 'sibling') {
       g.setEdge(r.fromId, r.toId, { weight: 0, minlen: 0 })
     }
   }
 
   dagre.layout(g)
 
-  const nodes: Node<PersonNodeData>[] = persons.map((p) => {
+  const positions = new Map<string, { x: number; y: number }>()
+  for (const p of persons) {
     const n = g.node(p.id)
+    positions.set(p.id, { x: n?.x ?? 0, y: n?.y ?? 0 })
+  }
+
+  const nodes: Node<PersonNodeData>[] = persons.map((p) => {
+    const pos = positions.get(p.id)!
     return {
       id: p.id,
       type: 'person',
-      position: { x: (n?.x ?? 0) - NODE_WIDTH / 2, y: (n?.y ?? 0) - NODE_HEIGHT / 2 },
+      position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
       data: { person: p, generation: generations.get(p.id) ?? 0 },
       draggable: false,
       selectable: true,
@@ -71,15 +77,24 @@ export function buildLayout(
         id: r.id,
         source: r.fromId,
         target: r.toId,
-        type: r.subtype === 'adoptive' ? 'adoptive' : 'parentChild',
+        sourceHandle: 'b',
+        targetHandle: 't',
+        type: 'parentChild',
         data: { relation: r },
       }
     }
+    // Pick side handles based on dagre's x-coordinate so the line goes
+    // through the inner edge rather than across the node.
+    const a = positions.get(r.fromId)!
+    const b = positions.get(r.toId)!
+    const fromIsLeft = a.x <= b.x
     return {
       id: r.id,
       source: r.fromId,
       target: r.toId,
-      type: 'spouse',
+      sourceHandle: fromIsLeft ? 'rs' : 'ls',
+      targetHandle: fromIsLeft ? 'lt' : 'rt',
+      type: r.kind === 'spouse' ? 'spouse' : 'sibling',
       data: { relation: r },
     }
   })

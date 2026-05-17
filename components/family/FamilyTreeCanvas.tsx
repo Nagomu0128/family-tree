@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
-  Controls,
-  MiniMap,
   ReactFlow,
   ReactFlowProvider,
   useEdgesState,
@@ -42,7 +40,7 @@ import { Modal } from '@/components/ui/Modal'
 import { PersonForm } from './PersonForm'
 import { RelationForm } from './RelationForm'
 import { PersonNode } from './PersonNode'
-import { AdoptiveEdge, ParentChildEdge, SpouseEdge } from './RelationEdge'
+import { ParentChildEdge, SiblingEdge, SpouseEdge } from './RelationEdge'
 import { SearchBar } from './SearchBar'
 import { defaultFilterState, FilterPanel, isFilterActive, type FilterState } from './FilterPanel'
 import { HistoryPanel } from './HistoryPanel'
@@ -50,14 +48,18 @@ import { ShareMenu } from './ShareMenu'
 import { GedcomMenu } from './GedcomMenu'
 import { computeKinship } from '@/lib/family/kinship'
 import { useHistory } from '@/lib/family/history'
-import type { Person, Relation } from '@/lib/family/types'
+import type { Person, Relation, RelationKind } from '@/lib/family/types'
 import type { PersonInput, RelationInput } from '@/lib/family/schemas'
+
+function relationKindLabel(kind: RelationKind): string {
+  return kind === 'spouse' ? '配偶者' : kind === 'sibling' ? '兄弟姉妹' : '親子'
+}
 
 const nodeTypes = { person: PersonNode }
 const edgeTypes = {
   parentChild: ParentChildEdge,
-  adoptive: AdoptiveEdge,
   spouse: SpouseEdge,
+  sibling: SiblingEdge,
 }
 
 export function FamilyTreeCanvas() {
@@ -245,7 +247,7 @@ function CanvasInner() {
       if (!user) return
       const id = newRelationId(treeId)
       await history.push({
-        label: `${input.kind === 'spouse' ? '配偶者' : '親子'} 関係を追加`,
+        label: `${relationKindLabel(input.kind)} 関係を追加`,
         do: async () => {
           await createRelation(treeId, user.uid, input, { id })
           void logHistory(treeId, user.uid, {
@@ -266,7 +268,7 @@ function CanvasInner() {
     async (snapshot: Relation) => {
       if (!user) return
       await history.push({
-        label: `${snapshot.kind === 'spouse' ? '配偶者' : '親子'} 関係を削除`,
+        label: `${relationKindLabel(snapshot.kind)} 関係を削除`,
         do: async () => {
           await deleteRelation(treeId, snapshot.id)
           void logHistory(treeId, user.uid, {
@@ -438,8 +440,6 @@ function CanvasInner() {
           zoomOnDoubleClick={false}
         >
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-          <Controls showInteractive={false} className="!rounded-md !shadow-sm" />
-          <MiniMap pannable zoomable className="!rounded-md" nodeStrokeWidth={2} />
         </ReactFlow>
 
         {personsLoading && persons.length === 0 && (

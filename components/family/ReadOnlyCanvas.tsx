@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
-  Controls,
-  MiniMap,
   ReactFlow,
   ReactFlowProvider,
   useEdgesState,
@@ -24,7 +22,7 @@ import {
 } from '@/lib/family/layout'
 import { computeKinship } from '@/lib/family/kinship'
 import { PersonNode } from './PersonNode'
-import { AdoptiveEdge, ParentChildEdge, SpouseEdge } from './RelationEdge'
+import { ParentChildEdge, SiblingEdge, SpouseEdge } from './RelationEdge'
 import { SearchBar } from './SearchBar'
 import { defaultFilterState, FilterPanel, isFilterActive, type FilterState } from './FilterPanel'
 import type { Person, Relation } from '@/lib/family/types'
@@ -32,8 +30,8 @@ import type { Person, Relation } from '@/lib/family/types'
 const nodeTypes = { person: PersonNode }
 const edgeTypes = {
   parentChild: ParentChildEdge,
-  adoptive: AdoptiveEdge,
   spouse: SpouseEdge,
+  sibling: SiblingEdge,
 }
 
 export function ReadOnlyCanvas({
@@ -206,8 +204,6 @@ function ReadOnlyInner({
           zoomOnDoubleClick={false}
         >
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-          <Controls showInteractive={false} className="!rounded-md !shadow-sm" />
-          <MiniMap pannable zoomable className="!rounded-md" nodeStrokeWidth={2} />
         </ReactFlow>
 
         {persons.length === 0 && (

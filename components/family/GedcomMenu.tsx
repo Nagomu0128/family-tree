@@ -75,14 +75,34 @@ export function GedcomMenu({
         const fromId = idMap.get(r.fromGedId)
         const toId = idMap.get(r.toGedId)
         if (!fromId || !toId) continue
-        await createRelation(treeId, uid, {
-          kind: r.kind,
-          fromId,
-          toId,
-          subtype: r.subtype,
-          startedYear: r.startedYear,
-          endedYear: r.endedYear,
-        })
+        if (r.kind === 'parent-child') {
+          await createRelation(treeId, uid, {
+            kind: 'parent-child',
+            fromId,
+            toId,
+            subtype: r.subtype,
+            startedYear: r.startedYear,
+            endedYear: r.endedYear,
+          })
+        } else if (r.kind === 'spouse') {
+          await createRelation(treeId, uid, {
+            kind: 'spouse',
+            fromId,
+            toId,
+            subtype: r.subtype,
+            startedYear: r.startedYear,
+            endedYear: r.endedYear,
+          })
+        } else {
+          await createRelation(treeId, uid, {
+            kind: 'sibling',
+            fromId,
+            toId,
+            subtype: r.subtype,
+            startedYear: r.startedYear,
+            endedYear: r.endedYear,
+          })
+        }
       }
       setParsed(null)
       setOpen(false)

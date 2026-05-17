@@ -10,6 +10,9 @@ const genderStyles: Record<string, string> = {
   unknown: 'border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900',
 }
 
+// Make handles essentially invisible — react-flow still routes edges to them.
+const handleClass = '!h-1 !w-1 !min-w-0 !min-h-0 !border-0 !bg-transparent'
+
 export function PersonNode({ data, selected }: NodeProps) {
   const { person, generation, highlight, dimmed } = data as PersonNodeData
   const genderClass = genderStyles[person.gender] ?? genderStyles.unknown
@@ -24,7 +27,15 @@ export function PersonNode({ data, selected }: NodeProps) {
         dimmed ? 'opacity-30' : '',
       ].join(' ')}
     >
-      <Handle type="target" position={Position.Top} className="!h-2 !w-2 !border-0 !bg-zinc-400" />
+      {/* Vertical handles for parent-child edges */}
+      <Handle id="t" type="target" position={Position.Top} className={handleClass} />
+      <Handle id="b" type="source" position={Position.Bottom} className={handleClass} />
+      {/* Side handles for spouse + sibling edges (undirected — both source & target) */}
+      <Handle id="ls" type="source" position={Position.Left} className={handleClass} />
+      <Handle id="lt" type="target" position={Position.Left} className={handleClass} />
+      <Handle id="rs" type="source" position={Position.Right} className={handleClass} />
+      <Handle id="rt" type="target" position={Position.Right} className={handleClass} />
+
       <div className="absolute -top-2 -left-2 rounded-full bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-white dark:bg-zinc-100 dark:text-zinc-900">
         G{generation}
       </div>
@@ -41,11 +52,6 @@ export function PersonNode({ data, selected }: NodeProps) {
           </span>
         )}
       </div>
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="!h-2 !w-2 !border-0 !bg-zinc-400"
-      />
     </div>
   )
 }
