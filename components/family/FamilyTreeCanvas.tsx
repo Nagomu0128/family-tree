@@ -46,6 +46,7 @@ import { AdoptiveEdge, ParentChildEdge, SpouseEdge } from './RelationEdge'
 import { SearchBar } from './SearchBar'
 import { defaultFilterState, FilterPanel, isFilterActive, type FilterState } from './FilterPanel'
 import { HistoryPanel } from './HistoryPanel'
+import { ShareMenu } from './ShareMenu'
 import { computeKinship } from '@/lib/family/kinship'
 import { useHistory } from '@/lib/family/history'
 import type { Person, Relation } from '@/lib/family/types'
@@ -67,7 +68,7 @@ export function FamilyTreeCanvas() {
 }
 
 function CanvasInner() {
-  const { treeId, role, persons, relations, personsLoading } = useTree()
+  const { tree, treeId, role, persons, relations, personsLoading } = useTree()
   const { user } = useAuth()
   const editor = canEdit(role)
   const { setCenter } = useReactFlow()
@@ -376,6 +377,14 @@ function CanvasInner() {
             >
               履歴
             </button>
+            {tree && (
+              <ShareMenu
+                tree={tree}
+                persons={persons}
+                relations={relations}
+                isOwner={role === 'owner'}
+              />
+            )}
             {editor && (
               <>
                 <button

@@ -9,6 +9,8 @@ export type Tree = {
   memberIds: string[]
   editorIds: string[]
   viewerIds: string[]
+  /** If set, the tree is publicly readable via /share/{shareCode}. */
+  shareCode?: string | null
   createdAt?: Timestamp
   updatedAt?: Timestamp
 }

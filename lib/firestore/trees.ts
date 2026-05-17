@@ -24,6 +24,7 @@ function fromDoc(snap: DocumentSnapshot | QueryDocumentSnapshot): Tree {
     memberIds: data.memberIds ?? [],
     editorIds: data.editorIds ?? [],
     viewerIds: data.viewerIds ?? [],
+    shareCode: data.shareCode ?? null,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
   }

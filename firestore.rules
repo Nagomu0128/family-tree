@@ -28,21 +28,25 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == treeData(treeId).ownerId;
     }
 
+    function isTreePublic(treeId) {
+      return treeData(treeId).shareCode != null;
+    }
+
     match /users/{uid} {
       allow read: if isSignedIn();
       allow write: if isSelf(uid);
     }
 
     match /trees/{treeId} {
-      allow read: if isSignedIn() && request.auth.uid in resource.data.memberIds;
+      // Members can always read; anyone can read when a public share is active.
+      allow read: if (isSignedIn() && request.auth.uid in resource.data.memberIds)
+        || (resource.data.shareCode != null);
 
       allow create: if isSignedIn()
         && request.resource.data.ownerId == request.auth.uid
         && request.auth.uid in request.resource.data.memberIds
         && request.auth.uid in request.resource.data.editorIds;
 
-      // Updates: owner can change anything. Editors can update content fields
-      // but cannot edit membership arrays.
       allow update: if isSignedIn() && (
         request.auth.uid == resource.data.ownerId
         || (
@@ -51,6 +55,7 @@ service cloud.firestore {
           && request.resource.data.memberIds == resource.data.memberIds
           && request.resource.data.editorIds == resource.data.editorIds
           && request.resource.data.viewerIds == resource.data.viewerIds
+          && request.resource.data.shareCode == resource.data.shareCode
         )
       );
 
@@ -58,17 +63,16 @@ service cloud.firestore {
 
       match /members/{memberUid} {
         allow read: if isMember(treeId);
-        // Only the owner manages membership directly.
         allow write: if isOwner(treeId);
       }
 
       match /persons/{personId} {
-        allow read: if isMember(treeId);
+        allow read: if isMember(treeId) || isTreePublic(treeId);
         allow write: if isEditor(treeId);
       }
 
       match /relations/{relationId} {
-        allow read: if isMember(treeId);
+        allow read: if isMember(treeId) || isTreePublic(treeId);
         allow write: if isEditor(treeId);
       }
 
@@ -79,11 +83,13 @@ service cloud.firestore {
       }
     }
 
-    // Share links - tightened in Phase 8.
     match /shareLinks/{code} {
       allow read: if true;
-      allow create, update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow create: if isSignedIn()
+        && isOwner(request.resource.data.treeId);
+      allow delete: if isSignedIn()
+        && isOwner(resource.data.treeId);
+      allow update: if false;
     }
   }
 }
