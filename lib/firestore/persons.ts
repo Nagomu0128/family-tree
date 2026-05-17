@@ -1,10 +1,10 @@
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   type DocumentSnapshot,
   type QueryDocumentSnapshot,
@@ -19,6 +19,10 @@ export function personsCollection(treeId: string) {
 
 export function personsQuery(treeId: string) {
   return query(personsCollection(treeId))
+}
+
+export function newPersonId(treeId: string): string {
+  return doc(personsCollection(treeId)).id
 }
 
 export function personFromSnapshot(snap: DocumentSnapshot | QueryDocumentSnapshot): Person {
@@ -39,7 +43,7 @@ export function personFromSnapshot(snap: DocumentSnapshot | QueryDocumentSnapsho
   }
 }
 
-function stripUndefined<T extends object>(obj: T): Partial<T> {
+function cleanInput<T extends object>(obj: T): Partial<T> {
   const out: Partial<T> = {}
   for (const [k, v] of Object.entries(obj)) {
     if (v === undefined || v === '') continue
@@ -52,15 +56,17 @@ export async function createPerson(
   treeId: string,
   uid: string,
   input: PersonInput,
+  options: { id?: string } = {},
 ): Promise<string> {
-  const data = stripUndefined(input)
-  const ref = await addDoc(personsCollection(treeId), {
+  const id = options.id ?? newPersonId(treeId)
+  const data = cleanInput(input)
+  await setDoc(doc(personsCollection(treeId), id), {
     ...data,
     createdBy: uid,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
-  return ref.id
+  return id
 }
 
 export async function updatePerson(
@@ -68,7 +74,7 @@ export async function updatePerson(
   personId: string,
   input: Partial<PersonInput>,
 ): Promise<void> {
-  const data = stripUndefined(input)
+  const data = cleanInput(input)
   await updateDoc(doc(personsCollection(treeId), personId), {
     ...data,
     updatedAt: serverTimestamp(),
@@ -77,4 +83,19 @@ export async function updatePerson(
 
 export async function deletePerson(treeId: string, personId: string): Promise<void> {
   await deleteDoc(doc(personsCollection(treeId), personId))
+}
+
+/**
+ * Restore a person from a prior snapshot. Used by undo of delete; keeps the
+ * original id and createdAt/createdBy so relations referencing it still link.
+ */
+export async function restorePerson(treeId: string, person: Person): Promise<void> {
+  const { id, ...rest } = person
+  const payload: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(rest)) {
+    if (v === undefined) continue
+    payload[k] = v
+  }
+  payload.updatedAt = serverTimestamp()
+  await setDoc(doc(personsCollection(treeId), id), payload)
 }

@@ -24,8 +24,20 @@ import {
   type PersonNodeData,
   type RelationEdgeData,
 } from '@/lib/family/layout'
-import { createPerson, deletePerson, updatePerson } from '@/lib/firestore/persons'
-import { createRelation, deleteRelation } from '@/lib/firestore/relations'
+import {
+  createPerson,
+  deletePerson,
+  newPersonId,
+  restorePerson,
+  updatePerson,
+} from '@/lib/firestore/persons'
+import {
+  createRelation,
+  deleteRelation,
+  newRelationId,
+  restoreRelation,
+} from '@/lib/firestore/relations'
+import { logHistory } from '@/lib/firestore/history'
 import { Modal } from '@/components/ui/Modal'
 import { PersonForm } from './PersonForm'
 import { RelationForm } from './RelationForm'
@@ -33,8 +45,11 @@ import { PersonNode } from './PersonNode'
 import { AdoptiveEdge, ParentChildEdge, SpouseEdge } from './RelationEdge'
 import { SearchBar } from './SearchBar'
 import { defaultFilterState, FilterPanel, isFilterActive, type FilterState } from './FilterPanel'
+import { HistoryPanel } from './HistoryPanel'
 import { computeKinship } from '@/lib/family/kinship'
+import { useHistory } from '@/lib/family/history'
 import type { Person, Relation } from '@/lib/family/types'
+import type { PersonInput, RelationInput } from '@/lib/family/schemas'
 
 const nodeTypes = { person: PersonNode }
 const edgeTypes = {
@@ -56,6 +71,7 @@ function CanvasInner() {
   const { user } = useAuth()
   const editor = canEdit(role)
   const { setCenter } = useReactFlow()
+  const history = useHistory()
 
   const { nodes: layoutNodes, edges: layoutEdges } = useMemo(
     () => buildLayout(persons, relations),
@@ -64,9 +80,9 @@ function CanvasInner() {
 
   const [filterState, setFilterState] = useState<FilterState>(defaultFilterState)
   const [filterOpen, setFilterOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
 
-  // Indexes derived from current persons/relations.
   const personById = useMemo(() => new Map(persons.map((p) => [p.id, p])), [persons])
   const generationById = useMemo(() => {
     const m = new Map<string, number>()
@@ -157,6 +173,134 @@ function CanvasInner() {
     [layoutNodes, setCenter],
   )
 
+  // ---- Undo-able mutation wrappers ------------------------------------------
+  const doAddPerson = useCallback(
+    async (input: PersonInput) => {
+      if (!user) return
+      const id = newPersonId(treeId)
+      await history.push({
+        label: `人物を追加: ${input.name}`,
+        do: async () => {
+          await createPerson(treeId, user.uid, input, { id })
+          void logHistory(treeId, user.uid, {
+            type: 'person:create',
+            personId: id,
+            name: input.name,
+          })
+        },
+        undo: async () => {
+          await deletePerson(treeId, id)
+        },
+      })
+    },
+    [history, treeId, user],
+  )
+
+  const doEditPerson = useCallback(
+    async (before: Person, after: PersonInput) => {
+      if (!user) return
+      await history.push({
+        label: `人物を編集: ${after.name}`,
+        do: async () => {
+          await updatePerson(treeId, before.id, after)
+          void logHistory(treeId, user.uid, {
+            type: 'person:update',
+            personId: before.id,
+            name: after.name,
+          })
+        },
+        undo: async () => {
+          await restorePerson(treeId, before)
+        },
+      })
+    },
+    [history, treeId, user],
+  )
+
+  const doDeletePerson = useCallback(
+    async (snapshot: Person) => {
+      if (!user) return
+      await history.push({
+        label: `人物を削除: ${snapshot.name}`,
+        do: async () => {
+          await deletePerson(treeId, snapshot.id)
+          void logHistory(treeId, user.uid, {
+            type: 'person:delete',
+            personId: snapshot.id,
+            name: snapshot.name,
+          })
+        },
+        undo: async () => {
+          await restorePerson(treeId, snapshot)
+        },
+      })
+    },
+    [history, treeId, user],
+  )
+
+  const doAddRelation = useCallback(
+    async (input: RelationInput) => {
+      if (!user) return
+      const id = newRelationId(treeId)
+      await history.push({
+        label: `${input.kind === 'spouse' ? '配偶者' : '親子'} 関係を追加`,
+        do: async () => {
+          await createRelation(treeId, user.uid, input, { id })
+          void logHistory(treeId, user.uid, {
+            type: 'relation:create',
+            relationId: id,
+            kind: input.kind,
+          })
+        },
+        undo: async () => {
+          await deleteRelation(treeId, id)
+        },
+      })
+    },
+    [history, treeId, user],
+  )
+
+  const doDeleteRelation = useCallback(
+    async (snapshot: Relation) => {
+      if (!user) return
+      await history.push({
+        label: `${snapshot.kind === 'spouse' ? '配偶者' : '親子'} 関係を削除`,
+        do: async () => {
+          await deleteRelation(treeId, snapshot.id)
+          void logHistory(treeId, user.uid, {
+            type: 'relation:delete',
+            relationId: snapshot.id,
+            kind: snapshot.kind,
+          })
+        },
+        undo: async () => {
+          await restoreRelation(treeId, snapshot)
+        },
+      })
+    },
+    [history, treeId, user],
+  )
+
+  const doEditRelation = useCallback(
+    async (before: Relation, after: RelationInput) => {
+      if (!user) return
+      const newId = newRelationId(treeId)
+      await history.push({
+        label: `関係を編集`,
+        do: async () => {
+          await deleteRelation(treeId, before.id)
+          await createRelation(treeId, user.uid, after, { id: newId })
+        },
+        undo: async () => {
+          await deleteRelation(treeId, newId)
+          await restoreRelation(treeId, before)
+        },
+      })
+    },
+    [history, treeId, user],
+  )
+
+  // ---- Modal state ----------------------------------------------------------
   const [creatingPerson, setCreatingPerson] = useState(false)
   const [editingPerson, setEditingPerson] = useState<Person | null>(null)
   const [creatingRelation, setCreatingRelation] = useState(false)
@@ -169,7 +313,6 @@ function CanvasInner() {
     },
     [editor],
   )
-
   const onEdgeClick = useCallback(
     (_: unknown, edge: Edge<RelationEdgeData>) => {
       if (!editor) return
@@ -179,9 +322,33 @@ function CanvasInner() {
     [editor],
   )
 
-  // Hide the edit modal automatically if the person is removed elsewhere.
   const visibleEditingPerson =
     editingPerson && personById.has(editingPerson.id) ? editingPerson : null
+
+  // ---- Keyboard shortcuts ---------------------------------------------------
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target && /INPUT|TEXTAREA|SELECT/.test(target.tagName)) return
+      const meta = e.metaKey || e.ctrlKey
+      if (!meta) return
+      if (e.key.toLowerCase() === 'z') {
+        if (e.shiftKey) {
+          if (history.canRedo) {
+            e.preventDefault()
+            void history.redo()
+          }
+        } else {
+          if (history.canUndo) {
+            e.preventDefault()
+            void history.undo()
+          }
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [history])
 
   return (
     <div className="relative flex flex-1">
@@ -201,6 +368,13 @@ function CanvasInner() {
               }`}
             >
               フィルター{isFilterActive(filterState) && ' (適用中)'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryOpen((v) => !v)}
+              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              履歴
             </button>
             {editor && (
               <>
@@ -274,12 +448,22 @@ function CanvasInner() {
         />
       )}
 
+      {historyOpen && (
+        <HistoryPanel
+          state={history.state}
+          canUndo={history.canUndo}
+          canRedo={history.canRedo}
+          onUndo={() => void history.undo()}
+          onRedo={() => void history.redo()}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
+
       <Modal open={creatingPerson} onClose={() => setCreatingPerson(false)} title="人物を追加">
         <PersonForm
           onCancel={() => setCreatingPerson(false)}
           onSubmit={async (input) => {
-            if (!user) return
-            await createPerson(treeId, user.uid, input)
+            await doAddPerson(input)
             setCreatingPerson(false)
           }}
           submitLabel="追加"
@@ -296,11 +480,11 @@ function CanvasInner() {
             initial={visibleEditingPerson}
             onCancel={() => setEditingPerson(null)}
             onSubmit={async (input) => {
-              await updatePerson(treeId, visibleEditingPerson.id, input)
+              await doEditPerson(visibleEditingPerson, input)
               setEditingPerson(null)
             }}
             onDelete={async () => {
-              await deletePerson(treeId, visibleEditingPerson.id)
+              await doDeletePerson(visibleEditingPerson)
               setEditingPerson(null)
             }}
           />
@@ -312,8 +496,7 @@ function CanvasInner() {
           persons={persons}
           onCancel={() => setCreatingRelation(false)}
           onSubmit={async (input) => {
-            if (!user) return
-            await createRelation(treeId, user.uid, input)
+            await doAddRelation(input)
             setCreatingRelation(false)
           }}
         />
@@ -326,13 +509,11 @@ function CanvasInner() {
             initial={editingRelation}
             onCancel={() => setEditingRelation(null)}
             onSubmit={async (input) => {
-              if (!user) return
-              await deleteRelation(treeId, editingRelation.id)
-              await createRelation(treeId, user.uid, input)
+              await doEditRelation(editingRelation, input)
               setEditingRelation(null)
             }}
             onDelete={async () => {
-              await deleteRelation(treeId, editingRelation.id)
+              await doDeleteRelation(editingRelation)
               setEditingRelation(null)
             }}
           />

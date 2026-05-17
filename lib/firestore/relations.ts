@@ -1,10 +1,10 @@
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   type DocumentSnapshot,
   type QueryDocumentSnapshot,
@@ -19,6 +19,10 @@ export function relationsCollection(treeId: string) {
 
 export function relationsQuery(treeId: string) {
   return query(relationsCollection(treeId))
+}
+
+export function newRelationId(treeId: string): string {
+  return doc(relationsCollection(treeId)).id
 }
 
 export function relationFromSnapshot(snap: DocumentSnapshot | QueryDocumentSnapshot): Relation {
@@ -45,6 +49,7 @@ export async function createRelation(
   treeId: string,
   uid: string,
   input: RelationInput,
+  options: { id?: string } = {},
 ): Promise<string> {
   const data = { ...input }
   if (data.kind === 'spouse') {
@@ -52,6 +57,7 @@ export async function createRelation(
     data.fromId = a
     data.toId = b
   }
+  const id = options.id ?? newRelationId(treeId)
   const payload: Record<string, unknown> = {
     kind: data.kind,
     fromId: data.fromId,
@@ -63,8 +69,8 @@ export async function createRelation(
   if (data.kind === 'parent-child') payload.subtype = data.subtype ?? 'biological'
   if (typeof data.startedYear === 'number') payload.startedYear = data.startedYear
   if (typeof data.endedYear === 'number') payload.endedYear = data.endedYear
-  const ref = await addDoc(relationsCollection(treeId), payload)
-  return ref.id
+  await setDoc(doc(relationsCollection(treeId), id), payload)
+  return id
 }
 
 export async function updateRelation(
@@ -80,4 +86,15 @@ export async function updateRelation(
 
 export async function deleteRelation(treeId: string, relationId: string): Promise<void> {
   await deleteDoc(doc(relationsCollection(treeId), relationId))
+}
+
+export async function restoreRelation(treeId: string, relation: Relation): Promise<void> {
+  const { id, ...rest } = relation
+  const payload: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(rest)) {
+    if (v === undefined) continue
+    payload[k] = v
+  }
+  payload.updatedAt = serverTimestamp()
+  await setDoc(doc(relationsCollection(treeId), id), payload)
 }
